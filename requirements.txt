@@ -5,15 +5,19 @@ pyyaml>=6.0.1
 requests>=2.31.0
 httpx>=0.27.0
 
-# Optional — for RAG support
-# chromadb>=0.4.0
-# sentence-transformers>=2.6.0
-
-# Optional — for OpenAI / Anthropic providers
-# openai>=1.12.0
-# anthropic>=0.21.0
-
-# Dev & Testing
+# Testing
 pytest>=8.0.0
 pytest-cov>=5.0.0
 pytest-asyncio>=0.23.0
+
+# Optional — RAG / vector search (uncomment to enable)
+# chromadb>=0.4.0
+# sentence-transformers>=2.6.0
+
+# Optional — LLM providers (uncomment as needed)
+# openai>=1.12.0
+# anthropic>=0.21.0
+
+# Optional — Voice interface
+# openai-whisper>=20231117
+# TTS>=0.22.0

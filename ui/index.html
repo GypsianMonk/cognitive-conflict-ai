@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Cognitive Conflict AI — Dashboard</title>
+<style>
+  :root {
+    --bg: #0f0f11; --surface: #18181c; --border: #2a2a32;
+    --text: #e8e8f0; --muted: #7070a0; --accent: #7c6af7;
+    --green: #3ecf8e; --amber: #f59e0b; --red: #ef4444; --blue: #38bdf8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+  header { border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; gap: 1rem; }
+  header h1 { font-size: 1.1rem; font-weight: 600; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  .layout { display: grid; grid-template-columns: 1fr 380px; gap: 0; height: calc(100vh - 57px); }
+  .main { padding: 1.5rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; }
+  .sidebar { border-left: 1px solid var(--border); padding: 1.5rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; }
+  .card-title { font-size: 0.72rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.75rem; }
+  .query-box { display: flex; gap: 0.5rem; }
+  .query-box textarea { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; color: var(--text); font-size: 0.9rem; resize: none; height: 80px; outline: none; }
+  .query-box textarea:focus { border-color: var(--accent); }
+  .btn { background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 0.75rem 1.25rem; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: opacity .15s; white-space: nowrap; }
+  .btn:hover { opacity: .85; }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  .btn-sm { padding: 0.4rem 0.9rem; font-size: 0.78rem; border-radius: 6px; }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+  .btn-red { background: var(--red); }
+
+  /* Pipeline stages */
+  .pipeline { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .stage { display: flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; padding: 0.3rem 0.7rem; border-radius: 20px; border: 1px solid var(--border); color: var(--muted); transition: all .3s; }
+  .stage.active { border-color: var(--accent); color: var(--accent); }
+  .stage.done { border-color: var(--green); color: var(--green); }
+  .stage.warn { border-color: var(--amber); color: var(--amber); }
+  .stage-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  /* Agents */
+  .agents-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+  .agent-card { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.85rem; transition: border-color .3s; }
+  .agent-card.speaking { border-color: var(--accent); }
+  .agent-card.won { border-color: var(--green); }
+  .agent-name { font-size: 0.78rem; font-weight: 600; margin-bottom: 0.3rem; }
+  .agent-answer { font-size: 0.75rem; color: var(--muted); line-height: 1.5; min-height: 2.5rem; }
+  .conf-bar { height: 3px; background: var(--border); border-radius: 2px; margin-top: 0.6rem; }
+  .conf-fill { height: 100%; border-radius: 2px; background: var(--accent); transition: width .6s; }
+
+  /* Answer */
+  .answer-box { background: var(--bg); border: 1px solid var(--green); border-radius: 8px; padding: 1rem; font-size: 0.9rem; line-height: 1.7; min-height: 60px; }
+  .answer-box.empty { border-color: var(--border); color: var(--muted); font-style: italic; }
+
+  /* Metrics row */
+  .metrics-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; }
+  .metric { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem; text-align: center; }
+  .metric-val { font-size: 1.5rem; font-weight: 700; }
+  .metric-label { font-size: 0.68rem; color: var(--muted); margin-top: 0.2rem; }
+  .val-green { color: var(--green); }
+  .val-amber { color: var(--amber); }
+  .val-red { color: var(--red); }
+  .val-blue { color: var(--blue); }
+
+  /* Badges */
+  .badge { display: inline-block; font-size: 0.68rem; padding: 0.2rem 0.55rem; border-radius: 10px; font-weight: 600; }
+  .badge-green { background: rgba(62,207,142,.15); color: var(--green); }
+  .badge-amber { background: rgba(245,158,11,.15); color: var(--amber); }
+  .badge-red { background: rgba(239,68,68,.15); color: var(--red); }
+  .badge-purple { background: rgba(124,106,247,.15); color: var(--accent); }
+
+  /* Log */
+  .log { font-size: 0.72rem; font-family: monospace; color: var(--muted); max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.3rem; }
+  .log-entry { display: flex; gap: 0.5rem; }
+  .log-time { color: var(--accent); opacity: .6; flex-shrink: 0; }
+  .log-msg { color: var(--text); opacity: .7; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 0.3rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 0.75rem; }
+  .tab { font-size: 0.75rem; padding: 0.25rem 0.7rem; border-radius: 6px; cursor: pointer; color: var(--muted); }
+  .tab.active { background: var(--accent); color: #fff; }
+
+  .detail-row { display: flex; justify-content: space-between; align-items: center; padding: 0.35rem 0; border-bottom: 1px solid var(--border); font-size: 0.78rem; }
+  .detail-row:last-child { border-bottom: none; }
+  .detail-key { color: var(--muted); }
+  .detail-val { font-weight: 500; }
+
+  /* Spinner */
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="dot"></div>
+  <h1>🧠 Cognitive Conflict AI</h1>
+  <span style="font-size:.75rem;color:var(--muted);margin-left:auto">v2.0 · All Features Active</span>
+</header>
+
+<div class="layout">
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- Query -->
+    <div class="card">
+      <div class="card-title">Query</div>
+      <div class="query-box">
+        <textarea id="query-input" placeholder="Ask anything... The system will debate it from multiple perspectives."></textarea>
+        <div style="display:flex;flex-direction:column;gap:0.5rem">
+          <button class="btn" id="run-btn" onclick="runQuery()">Run Debate</button>
+          <button class="btn btn-outline btn-sm" onclick="runRedTeam()">🔴 Red Team</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pipeline -->
+    <div class="card">
+      <div class="card-title">Pipeline</div>
+      <div class="pipeline" id="pipeline">
+        <div class="stage" id="s-safety"><span class="stage-dot"></span>Safety Check</div>
+        <div class="stage" id="s-understand"><span class="stage-dot"></span>Query Understanding</div>
+        <div class="stage" id="s-kg"><span class="stage-dot"></span>Knowledge Graph</div>
+        <div class="stage" id="s-tot"><span class="stage-dot"></span>Tree of Thoughts</div>
+        <div class="stage" id="s-debate"><span class="stage-dot"></span>Multi-Agent Debate</div>
+        <div class="stage" id="s-reflect"><span class="stage-dot"></span>Self-Reflection</div>
+        <div class="stage" id="s-fact"><span class="stage-dot"></span>Fact Checking</div>
+        <div class="stage" id="s-hal"><span class="stage-dot"></span>Hallucination Check</div>
+        <div class="stage" id="s-score"><span class="stage-dot"></span>Scoring</div>
+        <div class="stage" id="s-judge"><span class="stage-dot"></span>Judge</div>
+      </div>
+    </div>
+
+    <!-- Agents -->
+    <div class="card">
+      <div class="card-title">Agent Responses</div>
+      <div class="agents-grid" id="agents-grid">
+        <div class="agent-card" id="agent-optimist">
+          <div class="agent-name">🟢 Agent A — Optimist</div>
+          <div class="agent-answer">Waiting...</div>
+          <div class="conf-bar"><div class="conf-fill" style="width:0%"></div></div>
+        </div>
+        <div class="agent-card" id="agent-skeptic">
+          <div class="agent-name">🔴 Agent B — Skeptic</div>
+          <div class="agent-answer">Waiting...</div>
+          <div class="conf-bar"><div class="conf-fill" style="width:0%"></div></div>
+        </div>
+        <div class="agent-card" id="agent-alternative">
+          <div class="agent-name">🔵 Agent C — Alternative</div>
+          <div class="agent-answer">Waiting...</div>
+          <div class="conf-bar"><div class="conf-fill" style="width:0%"></div></div>
+        </div>
+        <div class="agent-card" id="agent-expert">
+          <div class="agent-name">🟡 Expert Agent</div>
+          <div class="agent-answer">Not required for this query.</div>
+          <div class="conf-bar"><div class="conf-fill" style="width:0%"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Metrics -->
+    <div class="card">
+      <div class="card-title">Results</div>
+      <div class="metrics-row" id="metrics-row">
+        <div class="metric"><div class="metric-val val-green" id="m-conf">—</div><div class="metric-label">Confidence</div></div>
+        <div class="metric"><div class="metric-val val-blue" id="m-rounds">—</div><div class="metric-label">Debate Rounds</div></div>
+        <div class="metric"><div class="metric-val val-amber" id="m-hal">—</div><div class="metric-label">Hallucination Risk</div></div>
+        <div class="metric"><div class="metric-val val-blue" id="m-latency">—</div><div class="metric-label">Latency (s)</div></div>
+      </div>
+    </div>
+
+    <!-- Final Answer -->
+    <div class="card">
+      <div class="card-title">Final Answer</div>
+      <div class="answer-box empty" id="final-answer">Run a query to see the validated answer here.</div>
+      <div id="answer-meta" style="margin-top:.75rem;display:flex;gap:.5rem;flex-wrap:wrap"></div>
+    </div>
+
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+
+    <!-- Detail tabs -->
+    <div class="card" style="flex:1">
+      <div class="tabs">
+        <div class="tab active" onclick="showTab('uncertainty')">Uncertainty</div>
+        <div class="tab" onclick="showTab('factcheck')">Fact Check</div>
+        <div class="tab" onclick="showTab('wm')">Memory</div>
+        <div class="tab" onclick="showTab('safety')">Safety</div>
+      </div>
+
+      <div id="tab-uncertainty">
+        <div class="detail-row"><span class="detail-key">Total uncertainty</span><span class="detail-val" id="d-unc-total">—</span></div>
+        <div class="detail-row"><span class="detail-key">Epistemic</span><span class="detail-val" id="d-unc-ep">—</span></div>
+        <div class="detail-row"><span class="detail-key">Aleatoric</span><span class="detail-val" id="d-unc-al">—</span></div>
+        <div class="detail-row"><span class="detail-key">Dominant type</span><span class="detail-val" id="d-unc-type">—</span></div>
+        <div class="detail-row"><span class="detail-key">Agent agreement</span><span class="detail-val" id="d-unc-agree">—</span></div>
+        <div style="margin-top:.75rem;font-size:.75rem;color:var(--muted)" id="d-unc-rec">Run a query to see uncertainty analysis.</div>
+      </div>
+
+      <div id="tab-factcheck" style="display:none">
+        <div class="detail-row"><span class="detail-key">Credibility</span><span class="detail-val" id="d-fc-cred">—</span></div>
+        <div class="detail-row"><span class="detail-key">Verified claims</span><span class="detail-val val-green" id="d-fc-ver">—</span></div>
+        <div class="detail-row"><span class="detail-key">Unverified</span><span class="detail-val val-amber" id="d-fc-unver">—</span></div>
+        <div class="detail-row"><span class="detail-key">Disputed</span><span class="detail-val val-red" id="d-fc-dis">—</span></div>
+        <div id="d-fc-disputes" style="margin-top:.75rem;font-size:.73rem;color:var(--muted)">No disputes.</div>
+      </div>
+
+      <div id="tab-wm" style="display:none">
+        <div class="detail-row"><span class="detail-key">Premises</span><span class="detail-val" id="d-wm-pre">—</span></div>
+        <div class="detail-row"><span class="detail-key">Conclusions</span><span class="detail-val" id="d-wm-con">—</span></div>
+        <div class="detail-row"><span class="detail-key">Contradictions</span><span class="detail-val val-red" id="d-wm-cont">—</span></div>
+        <div class="detail-row"><span class="detail-key">Open questions</span><span class="detail-val val-amber" id="d-wm-oq">—</span></div>
+        <div class="detail-row"><span class="detail-key">KG context used</span><span class="detail-val" id="d-wm-kg">—</span></div>
+        <div class="detail-row"><span class="detail-key">Task decomposed</span><span class="detail-val" id="d-wm-task">—</span></div>
+        <div class="detail-row"><span class="detail-key">Reflections</span><span class="detail-val" id="d-wm-ref">—</span></div>
+      </div>
+
+      <div id="tab-safety" style="display:none">
+        <div class="detail-row"><span class="detail-key">Input safe</span><span class="detail-val" id="d-safe-ok">—</span></div>
+        <div class="detail-row"><span class="detail-key">Risk level</span><span class="detail-val" id="d-safe-risk">—</span></div>
+        <div id="d-safe-issues" style="margin-top:.75rem;font-size:.73rem;color:var(--muted)">No issues.</div>
+      </div>
+    </div>
+
+    <!-- Audit log -->
+    <div class="card">
+      <div class="card-title">Audit Log <span id="audit-id" style="font-weight:400;color:var(--muted)"></span></div>
+      <div class="log" id="audit-log">
+        <div class="log-entry"><span class="log-time">--:--:--</span><span class="log-msg">Waiting for query...</span></div>
+      </div>
+    </div>
+
+    <!-- Red team results -->
+    <div class="card" id="red-team-card" style="display:none">
+      <div class="card-title">🔴 Red Team Report</div>
+      <div id="red-team-results" style="font-size:.75rem;color:var(--muted)"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:8000';
+let lastResult = null;
+
+async function runQuery() {
+  const query = document.getElementById('query-input').value.trim();
+  if (!query) return;
+
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>';
+
+  resetUI();
+  addLog('Query submitted: ' + query.slice(0, 60));
+
+  const stages = ['safety','understand','kg','tot','debate','reflect','fact','hal','score','judge'];
+  let i = 0;
+  const stageInterval = setInterval(() => {
+    if (i > 0) setStage('s-' + stages[i-1], 'done');
+    if (i < stages.length) setStage('s-' + stages[i], 'active');
+    i++;
+    if (i > stages.length) clearInterval(stageInterval);
+  }, 400);
+
+  try {
+    const res = await fetch(`${API}/query`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({query})
+    });
+    const data = await res.json();
+    clearInterval(stageInterval);
+    stages.forEach(s => setStage('s-' + s, 'done'));
+    renderResult(data);
+    lastResult = data;
+    addLog('Query completed. Confidence: ' + data.confidence_score);
+  } catch(e) {
+    clearInterval(stageInterval);
+    addLog('ERROR: ' + e.message + ' (Is the API running on port 8000?)');
+    renderMockResult(query);
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = 'Run Debate';
+}
+
+function renderMockResult(query) {
+  const mock = {
+    query, final_answer: "API not reachable — showing mock result. Start the server with: uvicorn api.main:app --reload",
+    confidence_score: "72.0%", total_debate_rounds: 2, convergence_achieved: true,
+    hallucination_risk: 0.08, duration_seconds: 1.23, domain: "general", complexity: "medium",
+    task_decomposed: false, kg_context_used: false, reflection_count: 1,
+    contradictions: [], audit_query_id: "mock-001",
+    uncertainty: {total_uncertainty:0.25, epistemic:0.2, aleatoric:0.05, dominant_type:"epistemic", agent_agreement:0.82, recommendation:"Knowledge gap detected."},
+    fact_check: {overall_credibility:0.9, verified_count:2, unverified_count:1, disputed_count:0, disputes:[]},
+    working_memory_summary: {total_entries:6, premises:3, conclusions:2, contradictions:0, open_questions:1},
+    safety: {safe:true, issues:[], risk_level:"none"},
+    agent_responses: [
+      {agent_name:"Agent-A (Optimist)", answer:"This is a direct, confident answer.", confidence:0.85},
+      {agent_name:"Agent-B (Skeptic)", answer:"Several assumptions here need scrutiny.", confidence:0.72},
+      {agent_name:"Agent-C (Alternative)", answer:"Consider a lateral approach instead.", confidence:0.68},
+    ]
+  };
+  renderResult(mock);
+}
+
+function renderResult(data) {
+  // Final answer
+  const ans = document.getElementById('final-answer');
+  ans.textContent = data.final_answer || 'No answer generated.';
+  ans.classList.remove('empty');
+
+  // Metrics
+  document.getElementById('m-conf').textContent = data.confidence_score || '—';
+  document.getElementById('m-rounds').textContent = data.total_debate_rounds ?? '—';
+  const halRisk = (data.hallucination_risk * 100).toFixed(0) + '%';
+  const halEl = document.getElementById('m-hal');
+  halEl.textContent = halRisk;
+  halEl.className = 'metric-val ' + (data.hallucination_risk > 0.4 ? 'val-red' : data.hallucination_risk > 0.2 ? 'val-amber' : 'val-green');
+  document.getElementById('m-latency').textContent = data.duration_seconds?.toFixed(2) ?? '—';
+
+  // Meta badges
+  const meta = document.getElementById('answer-meta');
+  meta.innerHTML = '';
+  if (data.domain) meta.innerHTML += `<span class="badge badge-purple">${data.domain}</span>`;
+  meta.innerHTML += `<span class="badge badge-purple">${data.complexity}</span>`;
+  if (data.convergence_achieved) meta.innerHTML += `<span class="badge badge-green">Converged</span>`;
+  if (data.task_decomposed) meta.innerHTML += `<span class="badge badge-amber">Decomposed</span>`;
+  if (data.kg_context_used) meta.innerHTML += `<span class="badge badge-green">KG Used</span>`;
+  if (data.reflection_count > 0) meta.innerHTML += `<span class="badge badge-purple">${data.reflection_count} Reflections</span>`;
+  if (data.audit_query_id) document.getElementById('audit-id').textContent = '#' + data.audit_query_id;
+
+  // Agents
+  const agentMap = { optimist: 'Agent-A', skeptic: 'Agent-B', alternative: 'Agent-C', expert: 'Expert' };
+  const responses = data.agent_responses || [];
+  responses.forEach((r, i) => {
+    const keys = ['optimist','skeptic','alternative','expert'];
+    const card = document.getElementById('agent-' + keys[i]);
+    if (!card) return;
+    card.querySelector('.agent-answer').textContent = (r.answer || '').slice(0, 120) + '...';
+    card.querySelector('.conf-fill').style.width = ((r.confidence || 0.5) * 100) + '%';
+    card.className = 'agent-card' + (i === 0 ? ' won' : '');
+  });
+
+  // Uncertainty tab
+  if (data.uncertainty) {
+    const u = data.uncertainty;
+    document.getElementById('d-unc-total').textContent = ((u.total_uncertainty||0)*100).toFixed(0) + '%';
+    document.getElementById('d-unc-ep').textContent = ((u.epistemic||0)*100).toFixed(0) + '%';
+    document.getElementById('d-unc-al').textContent = ((u.aleatoric||0)*100).toFixed(0) + '%';
+    document.getElementById('d-unc-type').textContent = u.dominant_type || '—';
+    document.getElementById('d-unc-agree').textContent = ((u.agent_agreement||0)*100).toFixed(0) + '%';
+    document.getElementById('d-unc-rec').textContent = u.recommendation || '';
+  }
+
+  // Fact check tab
+  if (data.fact_check) {
+    const f = data.fact_check;
+    document.getElementById('d-fc-cred').textContent = ((f.overall_credibility||0)*100).toFixed(0) + '%';
+    document.getElementById('d-fc-ver').textContent = f.verified_count ?? '—';
+    document.getElementById('d-fc-unver').textContent = f.unverified_count ?? '—';
+    document.getElementById('d-fc-dis').textContent = f.disputed_count ?? '—';
+    if (f.disputes && f.disputes.length > 0) {
+      document.getElementById('d-fc-disputes').textContent = f.disputes.map(d => d.claim).join(' | ').slice(0,200);
+    }
+  }
+
+  // Working memory tab
+  if (data.working_memory_summary) {
+    const wm = data.working_memory_summary;
+    document.getElementById('d-wm-pre').textContent = wm.premises ?? '—';
+    document.getElementById('d-wm-con').textContent = wm.conclusions ?? '—';
+    document.getElementById('d-wm-cont').textContent = wm.contradictions ?? '—';
+    document.getElementById('d-wm-oq').textContent = wm.open_questions ?? '—';
+    document.getElementById('d-wm-kg').textContent = data.kg_context_used ? '✓' : '✗';
+    document.getElementById('d-wm-task').textContent = data.task_decomposed ? '✓' : '✗';
+    document.getElementById('d-wm-ref').textContent = data.reflection_count ?? '0';
+  }
+
+  // Safety tab
+  if (data.safety) {
+    const s = data.safety;
+    document.getElementById('d-safe-ok').textContent = s.safe ? '✓ Safe' : '✗ Blocked';
+    document.getElementById('d-safe-risk').textContent = s.risk_level || 'none';
+    document.getElementById('d-safe-issues').textContent = (s.issues || []).join('; ') || 'No issues.';
+  }
+}
+
+async function runRedTeam() {
+  addLog('Starting red team assessment...');
+  document.getElementById('red-team-card').style.display = 'block';
+  document.getElementById('red-team-results').textContent = 'Running...';
+  try {
+    const res = await fetch(`${API}/red-team/run`, {method:'POST'});
+    const data = await res.json();
+    const el = document.getElementById('red-team-results');
+    el.innerHTML = `<strong>Robustness: ${(data.robustness_score*100).toFixed(0)}%</strong> · ${data.vulnerabilities_found} vulnerabilities<br>`;
+    (data.findings || []).forEach(f => {
+      el.innerHTML += `<div style="margin-top:.4rem"><span class="badge ${f.severity==='critical'?'badge-red':f.severity==='medium'?'badge-amber':'badge-green'}">${f.severity}</span> ${f.type}: ${f.description.slice(0,80)}</div>`;
+    });
+    addLog('Red team done. Score: ' + (data.robustness_score*100).toFixed(0) + '%');
+  } catch(e) {
+    document.getElementById('red-team-results').textContent = 'API unreachable — run the server first.';
+  }
+}
+
+function setStage(id, state) {
+  const el = document.getElementById(id);
+  if (el) el.className = 'stage ' + state;
+}
+
+function resetUI() {
+  ['safety','understand','kg','tot','debate','reflect','fact','hal','score','judge'].forEach(s => setStage('s-'+s,''));
+  document.getElementById('final-answer').textContent = 'Run a query to see the validated answer here.';
+  document.getElementById('final-answer').classList.add('empty');
+  document.getElementById('answer-meta').innerHTML = '';
+  ['m-conf','m-rounds','m-hal','m-latency'].forEach(id => document.getElementById(id).textContent = '—');
+  document.getElementById('audit-log').innerHTML = '';
+}
+
+function addLog(msg) {
+  const log = document.getElementById('audit-log');
+  const time = new Date().toTimeString().slice(0,8);
+  log.innerHTML += `<div class="log-entry"><span class="log-time">${time}</span><span class="log-msg">${msg}</span></div>`;
+  log.scrollTop = log.scrollHeight;
+}
+
+function showTab(name) {
+  ['uncertainty','factcheck','wm','safety'].forEach(t => {
+    document.getElementById('tab-' + t).style.display = t === name ? 'block' : 'none';
+  });
+  document.querySelectorAll('.tab').forEach((tab, i) => {
+    tab.classList.toggle('active', ['uncertainty','factcheck','wm','safety'][i] === name);
+  });
+}
+
+document.getElementById('query-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) runQuery();
+});
+</script>
+</body>
+</html>
