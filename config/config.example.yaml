@@ -1,0 +1,28 @@
+model:
+  provider: "ollama"       # ollama | openai | anthropic
+  name: "mistral"          # Model name for your provider
+  temperature: 0.7
+  max_tokens: 1024
+
+agents:
+  debate_rounds: 3
+  enable_expert_injection: true
+
+scoring:
+  relevance_weight: 0.4
+  coherence_weight: 0.4
+  contradiction_penalty: 0.2
+
+memory:
+  enabled: true
+  max_history: 1000
+
+retrieval:
+  enabled: false
+  vector_db: "chroma"
+  top_k: 5
+
+api:
+  host: "0.0.0.0"
+  port: 8000
+  reload: true
