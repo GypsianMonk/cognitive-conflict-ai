@@ -237,4 +237,4 @@ pytest tests/ --cov=.             # With coverage
 
 ## 📄 License
 
-MIT License — see [LICENSE](LICENSE) for details.
+GypsianMonk
